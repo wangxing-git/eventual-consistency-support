@@ -27,8 +27,7 @@ public class PendingMessage implements Serializable {
 
     private String destination;
 
-    @Builder.Default
-    private MessageHeaders headers = new MessageHeaders(Maps.newLinkedHashMap());
+    private MessageHeaders headers;
 
     @Builder.Default
     private PendingMessageStatus status = PendingMessageStatus.PENDING;
@@ -41,13 +40,13 @@ public class PendingMessage implements Serializable {
 
     public static class PendingMessageBuilder {
 
-        private MessageHeaders headers$value;
+        private MessageHeaders headers = new MessageHeaders(Maps.newLinkedHashMap());
 
-        public PendingMessageBuilder setHeader(String header, String value) {
-            this.headers$value.put(header, value);
+        public PendingMessageBuilder setHeader(String header, Object value) {
+            this.headers.put(header, value);
             return this;
         }
 
     }
-    
+
 }
