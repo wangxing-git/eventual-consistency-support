@@ -15,7 +15,7 @@
 
     <modules>
         <module>eventual-consistency-support-core</module>
-        <module>examples</module>
+        <module>eventual-consistency-examples</module>
     </modules>
 
 </project>

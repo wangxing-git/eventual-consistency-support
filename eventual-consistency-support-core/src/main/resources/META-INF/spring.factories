@@ -1,0 +1,3 @@
+org.springframework.boot.SpringApplicationRunListener=org.xyattic.eventual.consistency.support.core.utils.XyatticSpringApplicationRunListener
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+  org.xyattic.eventual.consistency.support.core.autoconfigure.CommonMqAutoConfiguration
