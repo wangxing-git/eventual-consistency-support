@@ -14,6 +14,7 @@
     <version>0.0.1-SNAPSHOT</version>
     <name>eventual-consistency-examples</name>
     <description>eventual-consistency-examples</description>
+    <packaging>pom</packaging>
 
     <properties>
         <java.version>1.8</java.version>
@@ -50,6 +51,10 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -83,5 +88,22 @@
         <module>eventual-consistency-consumer</module>
         <module>eventual-consistency-provider</module>
     </modules>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-install-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

@@ -31,6 +31,7 @@ import java.util.Optional;
  * @author wangxing
  * @create 2020/3/27
  */
+@Deprecated
 @Slf4j
 public class InvocableHandlerMethod extends org.springframework.messaging.handler.invocation.InvocableHandlerMethod {
 

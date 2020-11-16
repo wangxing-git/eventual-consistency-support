@@ -1,4 +1,6 @@
-package org.xyattic.eventual.consistency.support.core.consumer.aop;
+package org.xyattic.eventual.consistency.support.example.consumer.controller;
+
+import org.xyattic.eventual.consistency.support.core.consumer.aop.ConsumeMqMessage;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -9,18 +11,12 @@ import java.lang.annotation.Target;
 
 /**
  * @author wangxing
- * @create 2020/3/27
- * use {@link ConsumeMqMessage}
+ * @create 2020/11/12
  */
-@Deprecated
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Inherited
-public @interface RabbitConsumer {
-
-    String persistenceName() default "";
-
-    String transactionManager() default "";
-
+@ConsumeMqMessage(messageClass = TestMessage.class, messageIdExpression = "#{message.eventId}")
+public @interface ConsumeTestMessage {
 }

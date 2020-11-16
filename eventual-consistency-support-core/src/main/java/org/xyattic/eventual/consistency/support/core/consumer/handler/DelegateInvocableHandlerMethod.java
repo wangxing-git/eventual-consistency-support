@@ -10,6 +10,7 @@ import java.lang.reflect.Method;
  * @author wangxing
  * @create 2020/4/14
  */
+@Deprecated
 public class DelegateInvocableHandlerMethod extends InvocableHandlerMethod {
 
     private InvocableHandlerMethod invocableHandlerMethod;

@@ -14,6 +14,7 @@ import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.ResolvableType;
 import org.springframework.util.ClassUtils;
+import org.xyattic.eventual.consistency.support.core.exception.MqException;
 
 import java.beans.Introspector;
 
@@ -110,6 +111,28 @@ public class SpringBeanUtils {
 
     public static <T> ObjectProvider<T> getBeanProvider(ResolvableType requiredType) {
         return getApplicationContext().getBeanProvider(requiredType);
+    }
+
+    public static <T> T getBean(String beanName, Class<T> beanClass) {
+        T bean;
+        if (StringUtils.isNotBlank(beanName)) {
+            bean = SpringBeanUtils.getBean(beanName);
+        } else {
+            bean = SpringBeanUtils.getBeanFactory().getBeanProvider(beanClass).getIfUnique();
+            if (bean == null) {
+                final String[] beanNamesForType =
+                        SpringBeanUtils.getBeanFactory().getBeanNamesForType(beanClass);
+                if (beanNamesForType.length == 0) {
+                    throw new MqException(beanClass.getSimpleName() + " bean not found in " +
+                            "spring");
+                } else if (beanNamesForType.length == 1) {
+                    bean = SpringBeanUtils.getBean(beanNamesForType[0]);
+                } else {
+                    throw new MqException(beanClass.getSimpleName() + " bean found " + beanNamesForType.length + ", please specify a name");
+                }
+            }
+        }
+        return bean;
     }
 
 }

@@ -1,5 +1,6 @@
 package org.xyattic.eventual.consistency.support.core.consumer.aop;
 
+import java.io.Serializable;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Inherited;
@@ -9,18 +10,26 @@ import java.lang.annotation.Target;
 
 /**
  * @author wangxing
- * @create 2020/3/27
- * use {@link ConsumeMqMessage}
  */
-@Deprecated
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Inherited
-public @interface RabbitConsumer {
+public @interface ConsumeMqMessage {
 
     String persistenceName() default "";
 
     String transactionManager() default "";
+
+    Class<? extends Serializable> messageClass() default DefaultMessageClass.class;
+
+    String messageExpression() default "";
+
+    String messageProvider() default "";
+
+    String messageIdExpression();
+
+    class DefaultMessageClass implements Serializable {
+    }
 
 }

@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.apache.rocketmq.spring.support.RocketMQHeaders;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.support.GenericMessage;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,14 +28,19 @@ public class RocketSender implements Sender {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void send(PendingMessage pendingMessage) {
-        SendResult sendResult = rocketMQTemplate.syncSend(pendingMessage.getDestination(),
+        String topicWithTags = pendingMessage.getDestination();
+        if (pendingMessage.getHeaders().containsKey(RocketMQHeaders.TAGS)) {
+            topicWithTags += ":";
+            topicWithTags += pendingMessage.getHeaders().get(RocketMQHeaders.TAGS);
+        }
+        SendResult sendResult = rocketMQTemplate.syncSend(topicWithTags,
                 new GenericMessage<>(pendingMessage.getBody(), pendingMessage.getHeaders()));
         if (SendStatus.SEND_OK.equals(sendResult.getSendStatus())) {
-            log.info("发送成功:{}", sendResult);
+            log.info("sent successfully: {}", sendResult);
             providerPersistence.changePendingMessageStatus(pendingMessage.getMessageId(),
                     PendingMessageStatus.HAS_BEEN_SENT);
         } else {
-            log.warn("发送失败:" + sendResult);
+            log.warn("failed to send:" + sendResult);
         }
     }
 

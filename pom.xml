@@ -8,6 +8,14 @@
     <version>0.0.1-SNAPSHOT</version>
     <name>eventual-consistency-support</name>
     <description>eventual-consistency-support</description>
+    <packaging>pom</packaging>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.2.6.RELEASE</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
 
     <properties>
         <java.version>1.8</java.version>
@@ -17,5 +25,18 @@
         <module>eventual-consistency-support-core</module>
         <module>eventual-consistency-examples</module>
     </modules>
+
+    <distributionManagement>
+        <repository>
+            <id>nexus-release</id>
+            <name>Nexus</name>
+            <url>http://ylwha.com:81/nexus/repository/maven-releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>nexus-snapshots</id>
+            <name>Nexus Snapshot</name>
+            <url>http://ylwha.com:81/nexus/repository/maven-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
 
 </project>

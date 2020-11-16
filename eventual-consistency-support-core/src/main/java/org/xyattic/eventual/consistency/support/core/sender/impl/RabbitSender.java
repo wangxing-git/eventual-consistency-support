@@ -46,11 +46,11 @@ public class RabbitSender implements Sender, InitializingBean {
                 @Override
                 public Message postProcessMessage(Message message) throws AmqpException {
                     message.getMessageProperties().setMessageId(pendingMessage.getMessageId());
-                    message.getMessageProperties().setAppId(pendingMessage.getHeaders().get(RabbitConstants.APP_ID_HEADER, String.class));
+                    message.getMessageProperties().setAppId(pendingMessage.getHeaders().get(RabbitConstants.APP_ID_HEADER).toString());
                     return message;
                 }
             };
-            rabbitTemplate.convertAndSend(RabbitUtils.getExchange(pendingMessage.getHeaders().get(RabbitConstants.EXCHANGE_HEADER, String.class)),
+            rabbitTemplate.convertAndSend(RabbitUtils.getExchange(pendingMessage.getHeaders().get(RabbitConstants.EXCHANGE_HEADER).toString()),
                     RabbitUtils.getRoutingKey(pendingMessage.getDestination()),
                     pendingMessage.getBody(), messagePostProcessor, correlationData);
             log.info("成功发送消息:{}", pendingMessage);

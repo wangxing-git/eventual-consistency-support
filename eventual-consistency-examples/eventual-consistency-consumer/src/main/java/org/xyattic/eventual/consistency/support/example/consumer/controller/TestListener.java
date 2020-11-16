@@ -3,7 +3,6 @@ package org.xyattic.eventual.consistency.support.example.consumer.controller;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RestController;
-import org.xyattic.eventual.consistency.support.core.consumer.aop.RabbitConsumer;
 
 /**
  * @author wangxing
@@ -14,7 +13,7 @@ import org.xyattic.eventual.consistency.support.core.consumer.aop.RabbitConsumer
 public class TestListener {
 
     @RabbitListener(queues = "test-q10")
-    @RabbitConsumer
+    @ConsumeTestMessage
     public void rabbitListener(TestMessage testMessage) {
         System.out.println("========rabbitListener=========");
         System.out.println(testMessage);
@@ -22,7 +21,7 @@ public class TestListener {
     }
 
     @RabbitListener(queues = "test-q20")
-    @RabbitConsumer
+    @ConsumeTestMessage
     public void rabbitListener2(TestMessage testMessage) {
         System.out.println("========rabbitListener2=========");
         System.out.println(testMessage);

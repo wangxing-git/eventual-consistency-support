@@ -4,6 +4,8 @@ import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.Date;
+
 /**
  * @author wangxing
  * @create 2020/3/23
@@ -13,12 +15,14 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class ConsumedMessage {
 
     @Id
-    private String id;
+    private Object id;
 
     private Object message;
 
     private Boolean success;
 
     private String exception;
+
+    private Date createTime;
 
 }

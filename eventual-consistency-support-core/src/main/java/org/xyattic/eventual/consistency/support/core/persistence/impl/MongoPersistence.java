@@ -6,8 +6,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.xyattic.eventual.consistency.support.core.consumer.ConsumedMessage;
-import org.xyattic.eventual.consistency.support.core.persistence.ConsumerPersistence;
-import org.xyattic.eventual.consistency.support.core.persistence.ProviderPersistence;
+import org.xyattic.eventual.consistency.support.core.persistence.Persistence;
 import org.xyattic.eventual.consistency.support.core.provider.PendingMessage;
 import org.xyattic.eventual.consistency.support.core.provider.enums.PendingMessageStatus;
 
@@ -19,7 +18,7 @@ import java.util.concurrent.ForkJoinPool;
  * @author wangxing
  * @create 2020/4/14
  */
-public class MongoPersistence implements ProviderPersistence, ConsumerPersistence {
+public class MongoPersistence implements Persistence {
 
     private MongoTemplate mongoTemplate;
 

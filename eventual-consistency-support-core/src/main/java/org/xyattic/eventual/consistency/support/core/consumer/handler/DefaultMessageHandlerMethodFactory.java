@@ -61,6 +61,7 @@ import java.util.List;
  * @see #setValidator
  * @see #setCustomArgumentResolvers
  */
+@Deprecated
 public class DefaultMessageHandlerMethodFactory
         implements MessageHandlerMethodFactory, BeanFactoryAware, InitializingBean {
 
