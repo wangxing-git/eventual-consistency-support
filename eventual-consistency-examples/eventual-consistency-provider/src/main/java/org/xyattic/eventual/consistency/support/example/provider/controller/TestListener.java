@@ -9,7 +9,7 @@ import org.xyattic.eventual.consistency.support.core.provider.PendingMessage;
 import org.xyattic.eventual.consistency.support.core.provider.PendingMessageContextHolder;
 import org.xyattic.eventual.consistency.support.core.provider.aop.SendMqMessage;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,15 +29,12 @@ public class TestListener {
         String id = UUID.randomUUID().toString();
         TestMessage testMessage = new TestMessage(id, "ffs");
 
-        PendingMessageContextHolder.set(Arrays.asList(
-                PendingMessage.builder()
-                        .setHeader(RabbitConstants.APP_ID_HEADER, "appid")
-                        .body(testMessage)
-                        .setHeader(RabbitConstants.EXCHANGE_HEADER, "test-e")
-                        .destination("test-k")
-                        .messageId(id)
-                        .build()
-        ));
+        final PendingMessage pendingMessage =
+                PendingMessage.builder(id, testMessage, "test-k")
+                        .build();
+        pendingMessage.getHeaders().put(RabbitConstants.APP_ID_HEADER, "appid");
+        pendingMessage.getHeaders().put(RabbitConstants.EXCHANGE_HEADER, "test-e");
+        PendingMessageContextHolder.add(pendingMessage);
 //        PendingMessageContextHolder.addAll(Arrays.asList(
 //                PendingMessage.builder()
 //                        .appId("appid")
@@ -56,13 +53,7 @@ public class TestListener {
 //                        .messageId(id)
 //                        .build()
 //        );
-        return Arrays.asList(PendingMessage.builder()
-                .setHeader(RabbitConstants.APP_ID_HEADER, "appid")
-                .body(testMessage)
-                .setHeader(RabbitConstants.EXCHANGE_HEADER, "test-e")
-                .destination("test-k")
-                .messageId(id)
-                .build());
+        return Collections.singletonList(pendingMessage);
     }
 
 }
