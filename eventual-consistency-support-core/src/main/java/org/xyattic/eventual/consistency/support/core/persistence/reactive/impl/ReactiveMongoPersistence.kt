@@ -1,91 +1,92 @@
-package org.xyattic.eventual.consistency.support.core.persistence.impl
+package org.xyattic.eventual.consistency.support.core.persistence.reactive.impl
 
-import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.beans.factory.DisposableBean
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
 import org.springframework.data.mongodb.core.query.Update
 import org.xyattic.eventual.consistency.support.core.consumer.ConsumedMessage
-import org.xyattic.eventual.consistency.support.core.persistence.Persistence
+import org.xyattic.eventual.consistency.support.core.persistence.reactive.ReactivePersistence
 import org.xyattic.eventual.consistency.support.core.provider.PendingMessage
 import org.xyattic.eventual.consistency.support.core.provider.PendingMessageHeaders
 import org.xyattic.eventual.consistency.support.core.provider.enums.PendingMessageStatus
+import org.xyattic.eventual.consistency.support.core.utils.getLogger
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
+import reactor.core.scheduler.Scheduler
+import reactor.core.scheduler.Schedulers
 import java.util.*
-import java.util.concurrent.ForkJoinPool
 
 /**
  * @author wangxing
  * @create 2020/4/14
  */
-open class MongoPersistence : Persistence {
-    private var mongoTemplate: MongoTemplate
-    private var forkJoinPool: ForkJoinPool
+open class ReactiveMongoPersistence : ReactivePersistence, DisposableBean {
 
-    constructor(mongoTemplate: MongoTemplate) {
+    companion object {
+        private val log = getLogger()
+    }
+
+    private var mongoTemplate: ReactiveMongoTemplate
+
+    private val scheduler: Scheduler
+
+    constructor(mongoTemplate: ReactiveMongoTemplate) {
         this.mongoTemplate = mongoTemplate
-        forkJoinPool = ForkJoinPool(10)
+        scheduler = Schedulers.newBoundedElastic(10, Int.MAX_VALUE, "ReactiveMongoPersistence")
     }
 
-    constructor(mongoTemplate: MongoTemplate, forkJoinPool: ForkJoinPool) {
+    constructor(mongoTemplate: ReactiveMongoTemplate, scheduler: Scheduler) {
         this.mongoTemplate = mongoTemplate
-        this.forkJoinPool = forkJoinPool
+        this.scheduler = scheduler
     }
 
-    override fun save(consumedMessage: ConsumedMessage) {
-        createCollection(ConsumedMessage::class.java)
-        mongoTemplate.insert(consumedMessage)
+    override fun save(consumedMessage: ConsumedMessage): Mono<Void> {
+        return mongoTemplate.insert(consumedMessage).then()
     }
 
-    protected fun createCollection(clz: Class<*>) {
-        forkJoinPool.submit {
-            if (!mongoTemplate.collectionExists(clz)) {
-                try {
-                    mongoTemplate.createCollection(clz)
-                } catch (ignored: Exception) {
-                }
-            }
-        }.join()
-    }
-
-    override fun save(pendingMessages: List<PendingMessage>) {
-        createCollection(PendingMessage::class.java)
-        mongoTemplate.insertAll(pendingMessages)
+    override fun save(pendingMessages: List<PendingMessage>): Mono<Void> {
+        return mongoTemplate.insertAll(pendingMessages).then()
     }
 
     override fun changePendingMessageStatus(
         id: String,
         status: PendingMessageStatus,
         sendTime: Date
-    ) {
+    ): Mono<Void> {
         val query = Query.query(Criteria.where("_id").`is`(id))
         val update = Update.update("status", status)
             .set("sendTime", sendTime)
-        mongoTemplate.update(PendingMessage::class.java)
+        return mongoTemplate.update(PendingMessage::class.java)
             .matching(query)
             .apply(update)
             .first()
+            .then()
     }
 
-    override fun sendSuccess(id: String, messageId: String) {
+    override fun sendSuccess(id: String, messageId: String): Mono<Void> {
         val query = Query.query(Criteria.where("_id").`is`(id))
         val update = Update.update("status", PendingMessageStatus.HAS_BEEN_SENT)
             .set("sendTime", Date())
             .set("headers." + PendingMessageHeaders.msgIdHeader, messageId)
-        mongoTemplate.update(PendingMessage::class.java)
+        return mongoTemplate.update(PendingMessage::class.java)
             .matching(query)
             .apply(update)
             .first()
+            .then()
     }
 
-    override fun sendFailed(id: String) {
+    override fun sendFailed(id: String): Mono<Void> {
         val query = Query.query(Criteria.where("_id").`is`(id))
         val update = Update.update("status", PendingMessageStatus.FAILED_TO_SEND)
-        mongoTemplate.update(PendingMessage::class.java)
+        return mongoTemplate.update(PendingMessage::class.java)
             .matching(query)
             .apply(update)
             .first()
+            .then()
     }
 
-    override fun getPendingMessages(timeBefore: Date): List<PendingMessage> {
+    override fun getPendingMessages(timeBefore: Date): Flux<PendingMessage> {
         return mongoTemplate.find(
             Query.query(
                 Criteria.where("status").`is`(PendingMessageStatus.PENDING).and("createTime")
@@ -93,4 +94,8 @@ open class MongoPersistence : Persistence {
             ), PendingMessage::class.java
         )
     }
+
+    override fun destroy() {
+    }
+
 }

@@ -6,17 +6,12 @@ import org.xyattic.eventual.consistency.support.core.provider.PendingMessage
 import org.xyattic.eventual.consistency.support.core.provider.enums.PendingMessageStatus
 import org.xyattic.eventual.consistency.support.core.sender.Sender
 import org.xyattic.eventual.consistency.support.core.utils.SpringBeanUtils
-import org.xyattic.eventual.consistency.support.core.utils.getLogger
 
 /**
  * @author wangxing
  * @create 2020/11/17
  */
 abstract class AbstractSender:Sender {
-
-    companion object {
-        private val log = getLogger()
-    }
 
     fun changePendingMessageStatus(id: String, status: PendingMessageStatus){
 

@@ -14,6 +14,10 @@ interface ProviderPersistence {
 
     fun changePendingMessageStatus(id: String, status: PendingMessageStatus, sendTime: Date)
 
+    fun sendSuccess(id: String, messageId: String)
+
+    fun sendFailed(id: String)
+
     fun getPendingMessages(timeBefore: Date): List<PendingMessage>
 
 }

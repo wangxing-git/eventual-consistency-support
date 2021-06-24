@@ -21,7 +21,7 @@ open class SendPendingMessageJob {
     }
 
     @RedisLock
-    @Scheduled(cron = "\${common-mq.sendPendingMessageJob.cron:0 0/1 * * * ?}")
+    @Scheduled(cron = "\${eventual-consistency.sendPendingMessageJob.cron:0 0/1 * * * ?}")
     open fun checkPendingMessage() {
         SpringBeanUtils.getBeanProvider(ProviderPersistence::class.java)
                 .forEach { providerPersistence: ProviderPersistence ->

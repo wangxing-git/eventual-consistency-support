@@ -15,11 +15,13 @@ import org.xyattic.eventual.consistency.support.core.lock.RedisLockAspect
  */
 @Configuration
 @ConditionalOnClass(RedisTemplate::class)
- class RedisLockConfiguration {
+class RedisLockConfiguration {
+
     @Bean
     @ConditionalOnMissingBean
-     fun redisLockAspect(redisTemplates: ObjectProvider<StringRedisTemplate>): RedisLockAspect? {
+    fun eventualConsistencyRedisLockAspect(redisTemplates: ObjectProvider<StringRedisTemplate>): RedisLockAspect? {
         val redisTemplate = redisTemplates.ifUnique ?: return null
         return RedisLockAspect(redisTemplate)
     }
+
 }

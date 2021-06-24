@@ -4,13 +4,13 @@ import com.alibaba.fastjson.JSONObject
 import com.alibaba.fastjson.parser.Feature
 import com.alibaba.fastjson.serializer.SerializerFeature
 import org.springframework.beans.BeanUtils
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.jdbc.core.BeanPropertyRowMapper
 import org.springframework.jdbc.core.JdbcTemplate
 import org.xyattic.eventual.consistency.support.core.annotation.Data
 import org.xyattic.eventual.consistency.support.core.consumer.ConsumedMessage
 import org.xyattic.eventual.consistency.support.core.persistence.Persistence
 import org.xyattic.eventual.consistency.support.core.provider.PendingMessage
+import org.xyattic.eventual.consistency.support.core.provider.PendingMessageHeaders
 import org.xyattic.eventual.consistency.support.core.provider.enums.PendingMessageStatus
 import java.io.Serializable
 import java.util.*
@@ -23,53 +23,103 @@ import java.util.stream.Collectors
  */
 open class JdbcTemplatePersistence : Persistence {
 
-    @Autowired
-    private lateinit var jdbcTemplate: JdbcTemplate
+    private var jdbcTemplate: JdbcTemplate
+
+    constructor(jdbcTemplate: JdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate
+    }
 
     override fun save(consumedMessage: ConsumedMessage) {
-        jdbcTemplate.update("INSERT INTO consumed_message (id,message,success,exception," +
-                "consume_time,create_time) VALUES (?,?,?,?,?,?)",
-                consumedMessage.id.toString(),
-                JSONObject.toJSONString(consumedMessage.message,
-                        SerializerFeature.WriteClassName),
-                if (consumedMessage.success) 1 else 0, consumedMessage.exception,
-                consumedMessage.consumeTime, consumedMessage.createTime)
+        jdbcTemplate.update(
+            "INSERT INTO consumed_message (id,message,success,exception," +
+                    "consume_time,create_time) VALUES (?,?,?,?,?,?)",
+            consumedMessage.id.toString(),
+            JSONObject.toJSONString(
+                consumedMessage.message,
+                SerializerFeature.WriteClassName
+            ),
+            if (consumedMessage.success) 1 else 0, consumedMessage.exception,
+            consumedMessage.consumeTime, consumedMessage.createTime
+        )
     }
 
     override fun save(pendingMessages: List<PendingMessage>) {
         pendingMessages.forEach(Consumer { pendingMessage: PendingMessage ->
-            jdbcTemplate.update("INSERT INTO pending_message (message_id,body,destination," +
-                    "headers,`status`,persistence_name,transaction_manager,create_time) " +
-                    "VALUES (?,?,?,?,?,?,?,?)",
-                    pendingMessage.messageId,
-                    JSONObject.toJSONString(pendingMessage.body,
-                            SerializerFeature.WriteClassName),
-                    pendingMessage.destination,
-                    JSONObject.toJSONString(pendingMessage.headers,
-                            SerializerFeature.WriteClassName),
-                    pendingMessage.status.toString(), pendingMessage.persistenceName,
-                    pendingMessage.transactionManager, pendingMessage.createTime)
+            jdbcTemplate.update(
+                "INSERT INTO pending_message (message_id,body,destination," +
+                        "headers,`status`,persistence_name,transaction_manager,create_time) " +
+                        "VALUES (?,?,?,?,?,?,?,?)",
+                pendingMessage.messageId,
+                JSONObject.toJSONString(
+                    pendingMessage.body,
+                    SerializerFeature.WriteClassName
+                ),
+                pendingMessage.destination,
+                JSONObject.toJSONString(
+                    pendingMessage.headers,
+                    SerializerFeature.WriteClassName
+                ),
+                pendingMessage.status.toString(), pendingMessage.persistenceName,
+                pendingMessage.transactionManager, pendingMessage.createTime
+            )
         })
     }
 
-    override fun changePendingMessageStatus(id: String, status: PendingMessageStatus, sendTime: Date) {
-        jdbcTemplate.update("UPDATE pending_message SET `status`=?,`send_time`=? WHERE message_id=?",
-                status.toString(), sendTime, id)
+    override fun changePendingMessageStatus(
+        id: String,
+        status: PendingMessageStatus,
+        sendTime: Date
+    ) {
+        jdbcTemplate.update(
+            "UPDATE pending_message SET `status`=?,`send_time`=? WHERE message_id=?",
+            status.toString(), sendTime, id
+        )
+    }
+
+    override fun sendSuccess(id: String, messageId: String) {
+        jdbcTemplate.query(
+            "SELECT*FROM pending_message WHERE message_id=?",
+            BeanPropertyRowMapper(PendingMessageEntity::class.java), id
+        ).firstOrNull()?.apply {
+            val mutableMap =
+                JSONObject.parse(headers, Feature.SupportAutoType) as MutableMap<String, Any>
+            mutableMap[PendingMessageHeaders.msgIdHeader] = messageId
+            jdbcTemplate.update(
+                "UPDATE pending_message SET `status`=?,`send_time`=?,`headers`=? WHERE message_id=?",
+                PendingMessageStatus.HAS_BEEN_SENT.toString(), Date(),
+                JSONObject.toJSONString(mutableMap, SerializerFeature.WriteClassName), id
+            )
+        }
+    }
+
+    override fun sendFailed(id: String) {
+        jdbcTemplate.update(
+            "UPDATE pending_message SET `status`=? WHERE message_id=?",
+            PendingMessageStatus.FAILED_TO_SEND.toString(), id
+        )
     }
 
     override fun getPendingMessages(timeBefore: Date): List<PendingMessage> {
-        return jdbcTemplate.query("SELECT*FROM pending_message WHERE `status`=? AND create_time<?",
-                BeanPropertyRowMapper(PendingMessageEntity::class.java),
-                PendingMessageStatus.PENDING.toString(), timeBefore).stream()
-                .map { pendingMessageEntity: PendingMessageEntity ->
-                    val pendingMessage = pendingMessageEntity.run { PendingMessage(messageId, body, destination) }
-                    BeanUtils.copyProperties(pendingMessageEntity, pendingMessage, "body",
-                            "headers")
-                    pendingMessage.apply {
-                        body = JSONObject.parse(pendingMessageEntity.body, Feature.SupportAutoType)
-                        headers = JSONObject.parse(pendingMessageEntity.headers, Feature.SupportAutoType) as MutableMap<String, Any>
-                    }
-                }.collect(Collectors.toList())
+        return jdbcTemplate.query(
+            "SELECT*FROM pending_message WHERE `status`=? AND create_time<?",
+            BeanPropertyRowMapper(PendingMessageEntity::class.java),
+            PendingMessageStatus.PENDING.toString(), timeBefore
+        ).stream()
+            .map { pendingMessageEntity: PendingMessageEntity ->
+                val pendingMessage =
+                    pendingMessageEntity.run { PendingMessage(messageId, body, destination) }
+                BeanUtils.copyProperties(
+                    pendingMessageEntity, pendingMessage, "body",
+                    "headers"
+                )
+                pendingMessage.apply {
+                    body = JSONObject.parse(pendingMessageEntity.body, Feature.SupportAutoType)
+                    headers = JSONObject.parse(
+                        pendingMessageEntity.headers,
+                        Feature.SupportAutoType
+                    ) as MutableMap<String, Any>
+                }
+            }.collect(Collectors.toList())
     }
 
     @Data

@@ -42,12 +42,12 @@
         <repository>
             <id>nexus-release</id>
             <name>Nexus</name>
-            <url>http://ylwha.com:81/nexus/repository/maven-releases/</url>
+            <url>http://lsawy.com:81/nexus/repository/maven-releases/</url>
         </repository>
         <snapshotRepository>
             <id>nexus-snapshots</id>
             <name>Nexus Snapshot</name>
-            <url>http://ylwha.com:81/nexus/repository/maven-snapshots/</url>
+            <url>http://lsawy.com:81/nexus/repository/maven-snapshots/</url>
         </snapshotRepository>
     </distributionManagement>
 
@@ -143,5 +143,23 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>popfox</id>
+            <distributionManagement>
+                <repository>
+                    <id>popfox-nexus-release</id>
+                    <name>Nexus</name>
+                    <url>http://nexus.imemoryi.com/nexus/content/repositories/releases/</url>
+                </repository>
+                <snapshotRepository>
+                    <id>popfox-nexus-snapshots</id>
+                    <name>Nexus Snapshot</name>
+                    <url>http://nexus.imemoryi.com/nexus/content/repositories/snapshots/</url>
+                </snapshotRepository>
+            </distributionManagement>
+        </profile>
+    </profiles>
 
 </project>

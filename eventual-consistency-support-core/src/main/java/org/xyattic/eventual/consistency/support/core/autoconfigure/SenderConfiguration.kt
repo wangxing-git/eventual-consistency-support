@@ -7,18 +7,17 @@ import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistrar
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.autoconfigure.condition.*
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.convert.converter.Converter
 import org.springframework.core.convert.support.DefaultConversionService
 import org.springframework.messaging.handler.annotation.support.MessageHandlerMethodFactory
 import org.xyattic.eventual.consistency.support.core.consumer.handler.DefaultMessageHandlerMethodFactory
+import org.xyattic.eventual.consistency.support.core.sender.ReactiveSender
 import org.xyattic.eventual.consistency.support.core.sender.Sender
 import org.xyattic.eventual.consistency.support.core.sender.impl.RabbitSender
+import org.xyattic.eventual.consistency.support.core.sender.impl.ReactiveRocketSender
 import org.xyattic.eventual.consistency.support.core.sender.impl.RocketSender
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
@@ -40,8 +39,8 @@ class SenderConfiguration {
 
         @Bean
         @ConditionalOnMissingBean
-        fun rabbitSender(): Sender {
-            return RabbitSender()
+        fun rabbitSender(rabbitTemplate: RabbitTemplate): Sender {
+            return RabbitSender(rabbitTemplate)
         }
 
         @Bean
@@ -62,7 +61,7 @@ class SenderConfiguration {
 
         private fun createDefaultMessageHandlerMethodFactory(): MessageHandlerMethodFactory {
             val defaultFactory = DefaultMessageHandlerMethodFactory()
-            defaultFactory.setBeanFactory(beanFactory!!)
+            defaultFactory.setBeanFactory(beanFactory)
             val conversionService = DefaultConversionService()
             conversionService.addConverter(BytesToStringConverter(StandardCharsets.UTF_8))
             defaultFactory.setConversionService(conversionService)
@@ -85,8 +84,16 @@ class SenderConfiguration {
 
         @Bean
         @ConditionalOnMissingBean
-        fun rocketSender(): Sender {
-            return RocketSender()
+        @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+        fun rocketSender(rocketMQTemplate: RocketMQTemplate): Sender {
+            return RocketSender(rocketMQTemplate)
+        }
+
+        @Bean
+        @ConditionalOnMissingBean
+        @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
+        fun reactiveRocketSender(rocketMQTemplate: RocketMQTemplate): ReactiveSender {
+            return ReactiveRocketSender(rocketMQTemplate)
         }
 
     }
