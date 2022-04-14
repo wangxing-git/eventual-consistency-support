@@ -50,6 +50,7 @@ open class ReactiveRocketSender(private val rocketMQTemplate: RocketMQTemplate) 
                         callback
                     )
                 } else {
+                    log.info("send message for $pendingMessage")
                     rocketMQTemplate.asyncSend(
                         topicWithTags,
                         GenericMessage(pendingMessage.body, pendingMessage.headers),
@@ -69,7 +70,7 @@ open class ReactiveRocketSender(private val rocketMQTemplate: RocketMQTemplate) 
                 }
                 Mono.empty<Void>()
             }).onErrorResume {
-                log.warn("failed to send: ${pendingMessage}", it)
+                log.error("failed to send: ${pendingMessage}", it)
                 Mono.empty()
             }
     }

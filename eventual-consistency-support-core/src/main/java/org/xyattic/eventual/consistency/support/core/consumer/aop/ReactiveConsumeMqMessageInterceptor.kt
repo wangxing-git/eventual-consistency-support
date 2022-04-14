@@ -1,5 +1,6 @@
 package org.xyattic.eventual.consistency.support.core.consumer.aop
 
+import com.alibaba.fastjson.JSONObject
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.aspectj.lang.ProceedingJoinPoint
@@ -7,16 +8,15 @@ import org.aspectj.lang.reflect.MethodSignature
 import org.reactivestreams.Publisher
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.lang.Nullable
+import org.springframework.transaction.ReactiveTransactionManager
 import org.springframework.transaction.reactive.TransactionalOperator
 import org.xyattic.eventual.consistency.support.core.aop.support.AnnotationMethodInterceptor
+import org.xyattic.eventual.consistency.support.core.consumer.AbstractMessage
 import org.xyattic.eventual.consistency.support.core.consumer.ConsumedMessage
 import org.xyattic.eventual.consistency.support.core.exception.DuplicateMessageException
 import org.xyattic.eventual.consistency.support.core.exception.MqException
 import org.xyattic.eventual.consistency.support.core.persistence.reactive.ReactiveConsumerPersistence
-import org.xyattic.eventual.consistency.support.core.utils.SpelUtils
-import org.xyattic.eventual.consistency.support.core.utils.SpringBeanUtils
-import org.xyattic.eventual.consistency.support.core.utils.getLogger
-import org.xyattic.eventual.consistency.support.core.utils.safeAs
+import org.xyattic.eventual.consistency.support.core.utils.*
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.io.Serializable
@@ -53,6 +53,22 @@ open class ReactiveConsumeMqMessageInterceptor : AnnotationMethodInterceptor<Con
             log.info("Duplicate message, ignored, id: " + id + ", message: " + message, it)
             Mono.empty()
         }
+        if (message.reconsume.not()) {
+            if (isFlux) {
+                return saveFailConsumedMessages(
+                    consumeMqMessage,
+                    consumedMessage, null
+                ).thenMany(Flux.empty<Any>())
+                    .onErrorResume(DuplicateMessageException::class.java, fallback)
+                ;
+            }
+            return saveFailConsumedMessages(
+                consumeMqMessage,
+                consumedMessage, null
+            ).then(Mono.empty<Any>())
+                .onErrorResume(DuplicateMessageException::class.java, fallback)
+            ;
+        }
         return if (isFlux) {
             getTransactionalOperator(consumeMqMessage).transactional(
                 saveSuccessConsumedMessages(
@@ -60,12 +76,30 @@ open class ReactiveConsumeMqMessageInterceptor : AnnotationMethodInterceptor<Con
                     consumedMessage
                 ).thenMany(pjp.proceed().safeAs<Flux<Any>>())
             ).onErrorResume(DuplicateMessageException::class.java, fallback)
+                .onErrorResume {
+                    if (!message.reconsume) {
+                        return@onErrorResume saveFailConsumedMessages(
+                            consumeMqMessage,
+                            consumedMessage, it
+                        )
+                    }
+                    Mono.error(it)
+                }
         } else {
             getTransactionalOperator(consumeMqMessage).transactional(
                 saveSuccessConsumedMessages(consumeMqMessage, consumedMessage).then(
                     pjp.proceed().safeAs<Mono<Any>>()
                 )
             ).onErrorResume(DuplicateMessageException::class.java, fallback)
+                .onErrorResume {
+                    if (!message.reconsume) {
+                        return@onErrorResume saveFailConsumedMessages(
+                            consumeMqMessage,
+                            consumedMessage, it
+                        )
+                    }
+                    Mono.error(it)
+                }
         }
     }
 
@@ -90,8 +124,8 @@ open class ReactiveConsumeMqMessageInterceptor : AnnotationMethodInterceptor<Con
     private fun parseMessage(
         pjp: ProceedingJoinPoint,
         consumeMqMessage: ConsumeMqMessage
-    ): Serializable {
-        var message: Serializable? = null
+    ): AbstractMessage {
+        var message: AbstractMessage? = null
         val messageClass = consumeMqMessage.messageClass
         if (DefaultMessageClass::class.java != messageClass) {
             message = findProvidedArgument(messageClass.java, *pjp.args)
@@ -101,7 +135,7 @@ open class ReactiveConsumeMqMessageInterceptor : AnnotationMethodInterceptor<Con
             root["args"] = pjp.args
             message = SpelUtils.parse(
                 consumeMqMessage.messageExpression, root,
-                Serializable::class.java
+                AbstractMessage::class.java
             )
         }
         if (StringUtils.isNotBlank(consumeMqMessage.messageProvider)) {
@@ -120,11 +154,14 @@ open class ReactiveConsumeMqMessageInterceptor : AnnotationMethodInterceptor<Con
 
     private fun parseMessageId(
         pjp: ProceedingJoinPoint, consumeMqMessage: ConsumeMqMessage,
-        message: Serializable
+        message: AbstractMessage
     ): Any {
         val messageIdExpression: String = consumeMqMessage.messageIdExpression
         if (StringUtils.isBlank(messageIdExpression)) {
-            throw MqException("messageIdExpression is blank")
+            if (StringUtils.isBlank(message.getId())) {
+                throw MqException("messageIdExpression is blank and the message.getId() is blank")
+            }
+            return message.getId()
         }
         val root: MutableMap<String?, Any?> = hashMapOf()
         root["args"] = pjp.args
@@ -143,32 +180,47 @@ open class ReactiveConsumeMqMessageInterceptor : AnnotationMethodInterceptor<Con
     protected fun saveFailConsumedMessages(
         consumeMqMessage: ConsumeMqMessage,
         consumedMessage: ConsumedMessage,
-        e: Exception?
+        e: Throwable?
     ): Mono<Void> {
-        return saveConsumedMessages(consumeMqMessage, consumedMessage, false, e)
+        return ReactiveTransactionUtils.getRequestsNewOperator(
+            getTransactionManager(
+                consumeMqMessage
+            )
+        ).transactional(saveConsumedMessages(consumeMqMessage, consumedMessage, false, e))
     }
 
     protected fun saveConsumedMessages(
         consumeMqMessage: ConsumeMqMessage,
         consumedMessage: ConsumedMessage,
-        success: Boolean, e: Exception?
+        success: Boolean, e: Throwable?
     ): Mono<Void> {
-        consumedMessage.success = success
-        if (e != null) {
-            consumedMessage.exception = ExceptionUtils.getStackTrace(e)
-        }
-        consumedMessage.createTime = Date()
-        consumedMessage.consumeTime = Date()
-        return getReactiveConsumerPersistence(consumeMqMessage).save(consumedMessage)
-            .onErrorResume(DuplicateKeyException::class.java) {
-                Mono.error(DuplicateMessageException(it))
+        return Mono.defer {
+            consumedMessage.success = success
+            if (e != null) {
+                consumedMessage.exception = ExceptionUtils.getStackTrace(e)
             }
+            consumedMessage.createTime = Date()
+            consumedMessage.consumeTime = Date()
+
+            log.info("保存已消费消息: {}", JSONObject.toJSONString(consumedMessage))
+            getReactiveConsumerPersistence(consumeMqMessage).save(consumedMessage)
+                .onErrorResume(DuplicateKeyException::class.java) {
+                    Mono.error(DuplicateMessageException(it))
+                }
+        }
     }
 
     protected fun getTransactionalOperator(consumeMqMessage: ConsumeMqMessage): TransactionalOperator {
         return SpringBeanUtils.getBean(
             consumeMqMessage.transactionManager,
             TransactionalOperator::class.java
+        )
+    }
+
+    protected fun getTransactionManager(consumeMqMessage: ConsumeMqMessage): ReactiveTransactionManager {
+        return SpringBeanUtils.getBean(
+            consumeMqMessage.transactionManager,
+            ReactiveTransactionManager::class.java
         )
     }
 

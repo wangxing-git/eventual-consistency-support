@@ -1,19 +1,23 @@
 package org.xyattic.eventual.consistency.support.core.consumer.aop
 
+import com.alibaba.fastjson.JSONObject
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.aspectj.lang.ProceedingJoinPoint
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.lang.Nullable
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionStatus
 import org.springframework.transaction.support.TransactionTemplate
 import org.xyattic.eventual.consistency.support.core.aop.support.AnnotationMethodInterceptor
+import org.xyattic.eventual.consistency.support.core.consumer.AbstractMessage
 import org.xyattic.eventual.consistency.support.core.consumer.ConsumedMessage
 import org.xyattic.eventual.consistency.support.core.exception.DuplicateMessageException
 import org.xyattic.eventual.consistency.support.core.exception.MqException
 import org.xyattic.eventual.consistency.support.core.persistence.ConsumerPersistence
 import org.xyattic.eventual.consistency.support.core.utils.SpelUtils
 import org.xyattic.eventual.consistency.support.core.utils.SpringBeanUtils
+import org.xyattic.eventual.consistency.support.core.utils.TransactionUtils
 import org.xyattic.eventual.consistency.support.core.utils.getLogger
 import java.io.Serializable
 import java.util.*
@@ -40,8 +44,14 @@ open class ConsumeMqMessageInterceptor : AnnotationMethodInterceptor<ConsumeMqMe
             }
         } catch (duplicateKeyException: DuplicateMessageException) {
             log.info(
-                "Duplicate message, ignored, id: " + id + ", message: " + message)
+                "Duplicate message, ignored, id: " + id + ", message: " + message
+            )
             null
+        } catch (e: Throwable) {
+            if (message.reconsume) {
+                throw e;
+            }
+            saveFailConsumedMessages(consumeMqMessage, ConsumedMessage(id, message), e)
         }
     }
 
@@ -57,8 +67,8 @@ open class ConsumeMqMessageInterceptor : AnnotationMethodInterceptor<ConsumeMqMe
     private fun parseMessage(
         pjp: ProceedingJoinPoint,
         consumeMqMessage: ConsumeMqMessage
-    ): Serializable {
-        var message: Serializable? = null
+    ): AbstractMessage {
+        var message: AbstractMessage? = null
         val messageClass = consumeMqMessage.messageClass
         if (DefaultMessageClass::class.java != messageClass) {
             message = findProvidedArgument(messageClass.java, *pjp.args)
@@ -68,7 +78,7 @@ open class ConsumeMqMessageInterceptor : AnnotationMethodInterceptor<ConsumeMqMe
             root["args"] = pjp.args
             message = SpelUtils.parse(
                 consumeMqMessage.messageExpression, root,
-                Serializable::class.java
+                AbstractMessage::class.java
             )
         }
         if (StringUtils.isNotBlank(consumeMqMessage.messageProvider)) {
@@ -87,11 +97,14 @@ open class ConsumeMqMessageInterceptor : AnnotationMethodInterceptor<ConsumeMqMe
 
     private fun parseMessageId(
         pjp: ProceedingJoinPoint, consumeMqMessage: ConsumeMqMessage,
-        message: Serializable
+        message: AbstractMessage
     ): Any {
         val messageIdExpression: String = consumeMqMessage.messageIdExpression
         if (StringUtils.isBlank(messageIdExpression)) {
-            throw MqException("messageIdExpression is blank")
+            if (StringUtils.isBlank(message.getId())) {
+                throw MqException("messageIdExpression is blank and the message.getId() is blank")
+            }
+            return message.getId()
         }
         val root: MutableMap<String?, Any?> = hashMapOf()
         root["args"] = pjp.args
@@ -110,15 +123,18 @@ open class ConsumeMqMessageInterceptor : AnnotationMethodInterceptor<ConsumeMqMe
     protected fun saveFailConsumedMessages(
         consumeMqMessage: ConsumeMqMessage,
         consumedMessage: ConsumedMessage,
-        e: Exception?
+        e: Throwable?
     ) {
-        saveConsumedMessages(consumeMqMessage, consumedMessage, false, e)
+        TransactionUtils.getRequestsNewTemplate(getPlatformTransactionManager(consumeMqMessage))
+            .execute {
+                saveConsumedMessages(consumeMqMessage, consumedMessage, false, e)
+            }
     }
 
     protected fun saveConsumedMessages(
         consumeMqMessage: ConsumeMqMessage,
         consumedMessage: ConsumedMessage,
-        success: Boolean, e: Exception?
+        success: Boolean, e: Throwable?
     ) {
         try {
             consumedMessage.success = success
@@ -128,6 +144,7 @@ open class ConsumeMqMessageInterceptor : AnnotationMethodInterceptor<ConsumeMqMe
             consumedMessage.createTime = Date()
             consumedMessage.consumeTime = Date()
 
+            log.info("保存已消费消息: {}", JSONObject.toJSONString(consumedMessage))
             getConsumerPersistence(consumeMqMessage).save(consumedMessage)
         } catch (d: DuplicateKeyException) {
             throw DuplicateMessageException(d)
@@ -149,6 +166,13 @@ open class ConsumeMqMessageInterceptor : AnnotationMethodInterceptor<ConsumeMqMe
         return SpringBeanUtils.getBean(
             consumeMqMessage.persistenceName,
             ConsumerPersistence::class.java
+        )
+    }
+
+    protected fun getPlatformTransactionManager(consumeMqMessage: ConsumeMqMessage): PlatformTransactionManager {
+        return SpringBeanUtils.getBean(
+            consumeMqMessage.transactionManager,
+            PlatformTransactionManager::class.java
         )
     }
 

@@ -99,7 +99,7 @@ object SpringBeanUtils {
     fun <T> getBean(beanName: String?, beanClass: Class<T>): T {
         val bean: T?
         if (StringUtils.isNotBlank(beanName)) {
-            bean = getBean(beanName, beanClass)
+            bean = getBean<T>(beanName!!)
         } else {
             bean = beanFactory.getBeanProvider(beanClass).ifUnique
             if (bean == null) {

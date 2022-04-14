@@ -1,13 +1,13 @@
 package org.xyattic.eventual.consistency.support.core.consumer.aop
 
 import org.aspectj.lang.ProceedingJoinPoint
-import java.io.Serializable
+import org.xyattic.eventual.consistency.support.core.consumer.AbstractMessage
 
 /**
  * @author wangxing
  * @create 2020/8/24
  */
-interface MessageProvider<T : Serializable?> {
+interface MessageProvider<T : AbstractMessage?> {
 
     fun getMessage(consumeMqMessage: ConsumeMqMessage?, args: Array<Any?>?): T
 

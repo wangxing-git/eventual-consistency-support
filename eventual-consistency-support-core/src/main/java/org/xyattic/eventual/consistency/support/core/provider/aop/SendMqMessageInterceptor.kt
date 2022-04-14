@@ -33,10 +33,13 @@ open class SendMqMessageInterceptor : AnnotationMethodInterceptor<SendMqMessage>
 
     override fun doInvoke(sendMqMessage: SendMqMessage, pjp: ProceedingJoinPoint): Any? {
         return try {
-            val result = getTransactionTemplate(sendMqMessage).execute { status: TransactionStatus? ->
-                doInTransaction(pjp, sendMqMessage)
+            val result =
+                getTransactionTemplate(sendMqMessage).execute { status: TransactionStatus? ->
+                    doInTransaction(pjp, sendMqMessage)
+                }
+            if (sendMqMessage.delayedSend.not()) {
+                sendMessages(PendingMessageContextHolder.get())
             }
-            sendMessages(PendingMessageContextHolder.get())
             result
         } finally {
             PendingMessageContextHolder.clear()
@@ -51,20 +54,29 @@ open class SendMqMessageInterceptor : AnnotationMethodInterceptor<SendMqMessage>
         }
     }
 
-    protected open fun doInTransaction(pjp: ProceedingJoinPoint, sendMqMessage: SendMqMessage): Any? {
+    protected open fun doInTransaction(
+        pjp: ProceedingJoinPoint,
+        sendMqMessage: SendMqMessage
+    ): Any? {
         val result = pjp.proceed()
-        savePendingMessages(parseMessages(result,
-                (pjp.signature as MethodSignature).method), sendMqMessage)
+        savePendingMessages(
+            parseMessages(
+                result,
+                (pjp.signature as MethodSignature).method
+            ), sendMqMessage
+        )
         return result
     }
 
     protected open fun parseMessages(returnVal: Any?, method: Method?): List<PendingMessage> {
         if (returnVal is Collection<*>) {
             val clz = ResolvableType.forMethodReturnType(method)
-                    .getGeneric(0).rawClass
+                .getGeneric(0).rawClass
             if (PendingMessage::class.java == clz) {
-                PendingMessageContextHolder.set((returnVal as Collection<PendingMessage>).stream()
-                        .collect(Collectors.toList()))
+                PendingMessageContextHolder.set(
+                    (returnVal as Collection<PendingMessage>).stream()
+                        .collect(Collectors.toList())
+                )
             }
         } else if (returnVal is PendingMessage) {
             PendingMessageContextHolder.set(listOf(returnVal))
@@ -72,8 +84,10 @@ open class SendMqMessageInterceptor : AnnotationMethodInterceptor<SendMqMessage>
         return PendingMessageContextHolder.get()
     }
 
-    protected open fun savePendingMessages(pendingMessages: List<PendingMessage>,
-                                           sendMqMessage: SendMqMessage) {
+    protected open fun savePendingMessages(
+        pendingMessages: List<PendingMessage>,
+        sendMqMessage: SendMqMessage
+    ) {
         if (!CollectionUtils.isEmpty(pendingMessages)) {
             pendingMessages.forEach { pendingMessage: PendingMessage ->
                 pendingMessage.persistenceName = sendMqMessage.persistenceName
@@ -85,12 +99,17 @@ open class SendMqMessageInterceptor : AnnotationMethodInterceptor<SendMqMessage>
     }
 
     protected open fun getTransactionTemplate(sendMqMessage: SendMqMessage): TransactionTemplate {
-        return SpringBeanUtils.getBean(sendMqMessage.transactionManager,
-                TransactionTemplate::class.java)
+        return SpringBeanUtils.getBean(
+            sendMqMessage.transactionManager,
+            TransactionTemplate::class.java
+        )
     }
 
     protected open fun getProviderPersistence(sendMqMessage: SendMqMessage): ProviderPersistence {
-        return SpringBeanUtils.getBean(sendMqMessage.persistenceName, ProviderPersistence::class.java)
+        return SpringBeanUtils.getBean(
+            sendMqMessage.persistenceName,
+            ProviderPersistence::class.java
+        )
     }
 
     override fun getOrder(): Int {

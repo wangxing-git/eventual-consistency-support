@@ -5,6 +5,7 @@ import org.aspectj.lang.reflect.MethodSignature
 import org.reactivestreams.Publisher
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.ResolvableType
+import org.springframework.transaction.IllegalTransactionStateException
 import org.springframework.transaction.reactive.TransactionalOperator
 import org.springframework.util.CollectionUtils
 import org.xyattic.eventual.consistency.support.core.aop.support.AnnotationMethodInterceptor
@@ -20,6 +21,7 @@ import reactor.core.publisher.Mono
 import reactor.util.context.Context
 import java.lang.reflect.Method
 import java.util.*
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.function.BiFunction
 import java.util.function.Function
 import kotlin.reflect.jvm.kotlinFunction
@@ -51,7 +53,7 @@ open class ReactiveSendMqMessageInterceptor : AnnotationMethodInterceptor<SendMq
         } else {
             throw UnsupportedOperationException("Only support Mono and Flux return types")
         }
-        val asyncError = BiFunction { _: String, _: Throwable -> Mono.empty<Void>() }
+        val asyncError = BiFunction { _: String, t: Throwable -> Mono.empty<Void>() }
         val asyncCancel = Function<String, Mono<Void>> { Mono.empty() }
         val result = if (isFlux) {
             val targetFlux = pjp.proceed().safeAs<Flux<Any>>()
@@ -69,12 +71,21 @@ open class ReactiveSendMqMessageInterceptor : AnnotationMethodInterceptor<SendMq
                                     targetFlux
                                 ).safeAs<Flux<Any>>()
                             )
+                            .onErrorResume(IllegalTransactionStateException::class.java) {
+                                if (it.message.orEmpty()
+                                        .startsWith("Transaction is already completed")
+                                ) {
+                                    log.info(it.message)
+                                    return@onErrorResume Mono.empty()
+                                }
+                                Mono.error(it)
+                            }
                     }, Function<String, Mono<Void>> {
-                        sendMessages()
+                        sendMessages(sendMqMessage)
                     }, asyncError, asyncCancel).subscriberContext(
                         Context.of(
                             ReactivePendingMessageContextHolder.KEY,
-                            mutableListOf<PendingMessage>(),
+                            CopyOnWriteArrayList<PendingMessage>(),
                             processedKey,
                             true
                         )
@@ -96,12 +107,21 @@ open class ReactiveSendMqMessageInterceptor : AnnotationMethodInterceptor<SendMq
                                     targetMono
                                 ).safeAs<Mono<Any>>()
                             )
+                            .onErrorResume(IllegalTransactionStateException::class.java) {
+                                if (it.message.orEmpty()
+                                        .startsWith("Transaction is already completed")
+                                ) {
+                                    log.info(it.message)
+                                    return@onErrorResume Mono.empty()
+                                }
+                                Mono.error(it)
+                            }
                     }, Function<String, Mono<Void>> {
-                        sendMessages()
+                        sendMessages(sendMqMessage)
                     }, asyncError, asyncCancel).subscriberContext(
                         Context.of(
                             ReactivePendingMessageContextHolder.KEY,
-                            mutableListOf<PendingMessage>(),
+                            CopyOnWriteArrayList<PendingMessage>(),
                             processedKey,
                             true
                         )
@@ -111,7 +131,10 @@ open class ReactiveSendMqMessageInterceptor : AnnotationMethodInterceptor<SendMq
         return result
     }
 
-    protected open fun sendMessages(): Mono<Void> {
+    protected open fun sendMessages(sendMqMessage: SendMqMessage): Mono<Void> {
+        if (sendMqMessage.delayedSend) {
+            return Mono.empty()
+        }
         return ReactivePendingMessageContextHolder.get()
             .flatMap { pendingMessages ->
                 sender.send(pendingMessages)

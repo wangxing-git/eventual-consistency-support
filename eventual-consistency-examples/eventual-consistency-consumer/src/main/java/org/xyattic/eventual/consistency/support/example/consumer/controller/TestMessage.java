@@ -3,8 +3,7 @@ package org.xyattic.eventual.consistency.support.example.consumer.controller;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.io.Serializable;
+import org.xyattic.eventual.consistency.support.core.consumer.AbstractMessage;
 
 /**
  * @author wangxing
@@ -13,7 +12,9 @@ import java.io.Serializable;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class TestMessage implements Serializable {
+public class TestMessage extends AbstractMessage {
+
+    private String id;
 
     private String eventId;
 

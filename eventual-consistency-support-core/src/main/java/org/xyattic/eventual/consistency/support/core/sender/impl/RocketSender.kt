@@ -37,6 +37,7 @@ open class RocketSender(private val rocketMQTemplate: RocketMQTemplate) : Abstra
                             partitionKey
                         )
                     } else {
+                        log.info("send message for $pendingMessage")
                         rocketMQTemplate.syncSend(
                             topicWithTags,
                             GenericMessage(pendingMessage.body, pendingMessage.headers)
@@ -49,7 +50,7 @@ open class RocketSender(private val rocketMQTemplate: RocketMQTemplate) : Abstra
                         sendResult.msgId
                     )
                 } else {
-                    log.warn("failed to send: $sendResult")
+                    log.error("failed to send: $sendResult")
                 }
             }
 
