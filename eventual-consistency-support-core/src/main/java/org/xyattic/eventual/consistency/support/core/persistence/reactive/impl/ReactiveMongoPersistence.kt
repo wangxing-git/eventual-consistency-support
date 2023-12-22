@@ -1,6 +1,7 @@
 package org.xyattic.eventual.consistency.support.core.persistence.reactive.impl
 
 import org.springframework.beans.factory.DisposableBean
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
@@ -42,56 +43,71 @@ open class ReactiveMongoPersistence : ReactivePersistence, DisposableBean {
     }
 
     override fun save(consumedMessage: ConsumedMessage): Mono<Void> {
-        return mongoTemplate.insert(consumedMessage).then()
+        return mongoTemplate.exists(Query.query(Criteria.where("_id").`is`(consumedMessage.id)), ConsumedMessage::class.java)
+                .flatMap {
+                    if (it) {
+                        Mono.error(DuplicateKeyException(consumedMessage.id.toString()))
+                    } else {
+                        mongoTemplate.insert(consumedMessage).then()
+                    }
+                }
     }
 
-    override fun save(pendingMessages: List<PendingMessage>): Mono<Void> {
-        return mongoTemplate.insertAll(pendingMessages).then()
+    override fun save(pendingMessage: PendingMessage): Mono<Void> {
+        return mongoTemplate.exists(Query.query(Criteria.where("_id").`is`(pendingMessage.messageId)), PendingMessage::class.java)
+                .flatMap {
+                    if (!it) {
+                        mongoTemplate.insert(pendingMessage)
+                                .then()
+                    } else {
+                        Mono.error(DuplicateKeyException(pendingMessage.messageId))
+                    }
+                }
     }
 
     override fun changePendingMessageStatus(
-        id: String,
-        status: PendingMessageStatus,
-        sendTime: Date
+            id: String,
+            status: PendingMessageStatus,
+            sendTime: Date
     ): Mono<Void> {
         val query = Query.query(Criteria.where("_id").`is`(id))
         val update = Update.update("status", status)
-            .set("sendTime", sendTime)
+                .set("sendTime", sendTime)
         return mongoTemplate.update(PendingMessage::class.java)
-            .matching(query)
-            .apply(update)
-            .first()
-            .then()
+                .matching(query)
+                .apply(update)
+                .first()
+                .then()
     }
 
     override fun sendSuccess(id: String, messageId: String): Mono<Void> {
         val query = Query.query(Criteria.where("_id").`is`(id))
         val update = Update.update("status", PendingMessageStatus.HAS_BEEN_SENT)
-            .set("sendTime", Date())
-            .set("headers." + PendingMessageHeaders.msgIdHeader, messageId)
+                .set("sendTime", Date())
+                .set("headers." + PendingMessageHeaders.msgIdHeader, messageId)
         return mongoTemplate.update(PendingMessage::class.java)
-            .matching(query)
-            .apply(update)
-            .first()
-            .then()
+                .matching(query)
+                .apply(update)
+                .first()
+                .then()
     }
 
     override fun sendFailed(id: String): Mono<Void> {
         val query = Query.query(Criteria.where("_id").`is`(id))
         val update = Update.update("status", PendingMessageStatus.FAILED_TO_SEND)
         return mongoTemplate.update(PendingMessage::class.java)
-            .matching(query)
-            .apply(update)
-            .first()
-            .then()
+                .matching(query)
+                .apply(update)
+                .first()
+                .then()
     }
 
     override fun getPendingMessages(timeBefore: Date): Flux<PendingMessage> {
         return mongoTemplate.find(
-            Query.query(
-                Criteria.where("status").`is`(PendingMessageStatus.PENDING).and("createTime")
-                    .lte(timeBefore)
-            ), PendingMessage::class.java
+                Query.query(
+                        Criteria.where("status").`is`(PendingMessageStatus.PENDING).and("createTime")
+                                .lte(timeBefore)
+                ), PendingMessage::class.java
         )
     }
 

@@ -101,9 +101,4 @@ public class RabbitConfig {
         return new Queue(RabbitUtils.getQueue("test-q20"));
     }
 
-//    @Bean
-//    public RabbitConsumerAspect rabbitConsumerAspect() {
-//        return new RabbitConsumerAspect();
-//    }
-
 }

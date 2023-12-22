@@ -12,7 +12,7 @@ import java.util.*
  */
 interface ReactiveProviderPersistence {
 
-    fun save(pendingMessages: List<PendingMessage>): Mono<Void>
+    fun save(pendingMessage: PendingMessage): Mono<Void>
 
     fun changePendingMessageStatus(
         id: String,

@@ -10,7 +10,7 @@ import java.util.*
  */
 interface ProviderPersistence {
 
-    fun save(pendingMessages: List<PendingMessage>)
+    fun save(pendingMessage: PendingMessage)
 
     fun changePendingMessageStatus(id: String, status: PendingMessageStatus, sendTime: Date)
 

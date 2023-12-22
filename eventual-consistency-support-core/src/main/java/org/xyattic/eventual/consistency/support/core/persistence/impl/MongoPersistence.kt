@@ -1,5 +1,6 @@
 package org.xyattic.eventual.consistency.support.core.persistence.impl
 
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
@@ -32,6 +33,9 @@ open class MongoPersistence : Persistence {
 
     override fun save(consumedMessage: ConsumedMessage) {
         createCollection(ConsumedMessage::class.java)
+        if (mongoTemplate.exists(Query.query(Criteria.where("_id").`is`(consumedMessage.id)), ConsumedMessage::class.java)) {
+            throw DuplicateKeyException(consumedMessage.id.toString())
+        }
         mongoTemplate.insert(consumedMessage)
     }
 
@@ -46,51 +50,56 @@ open class MongoPersistence : Persistence {
         }.join()
     }
 
-    override fun save(pendingMessages: List<PendingMessage>) {
+    override fun save(pendingMessage: PendingMessage) {
         createCollection(PendingMessage::class.java)
-        mongoTemplate.insertAll(pendingMessages)
+        val exists = mongoTemplate.exists(Query.query(Criteria.where("_id").`is`(pendingMessage.messageId)), PendingMessage::class.java)
+        if (!exists) {
+            mongoTemplate.insert(pendingMessage)
+        } else {
+            throw DuplicateKeyException(pendingMessage.messageId)
+        }
     }
 
     override fun changePendingMessageStatus(
-        id: String,
-        status: PendingMessageStatus,
-        sendTime: Date
+            id: String,
+            status: PendingMessageStatus,
+            sendTime: Date
     ) {
         val query = Query.query(Criteria.where("_id").`is`(id))
         val update = Update.update("status", status)
-            .set("sendTime", sendTime)
+                .set("sendTime", sendTime)
         mongoTemplate.update(PendingMessage::class.java)
-            .matching(query)
-            .apply(update)
-            .first()
+                .matching(query)
+                .apply(update)
+                .first()
     }
 
     override fun sendSuccess(id: String, messageId: String) {
         val query = Query.query(Criteria.where("_id").`is`(id))
         val update = Update.update("status", PendingMessageStatus.HAS_BEEN_SENT)
-            .set("sendTime", Date())
-            .set("headers." + PendingMessageHeaders.msgIdHeader, messageId)
+                .set("sendTime", Date())
+                .set("headers." + PendingMessageHeaders.msgIdHeader, messageId)
         mongoTemplate.update(PendingMessage::class.java)
-            .matching(query)
-            .apply(update)
-            .first()
+                .matching(query)
+                .apply(update)
+                .first()
     }
 
     override fun sendFailed(id: String) {
         val query = Query.query(Criteria.where("_id").`is`(id))
         val update = Update.update("status", PendingMessageStatus.FAILED_TO_SEND)
         mongoTemplate.update(PendingMessage::class.java)
-            .matching(query)
-            .apply(update)
-            .first()
+                .matching(query)
+                .apply(update)
+                .first()
     }
 
     override fun getPendingMessages(timeBefore: Date): List<PendingMessage> {
         return mongoTemplate.find(
-            Query.query(
-                Criteria.where("status").`is`(PendingMessageStatus.PENDING).and("createTime")
-                    .lte(timeBefore)
-            ), PendingMessage::class.java
+                Query.query(
+                        Criteria.where("status").`is`(PendingMessageStatus.PENDING).and("createTime")
+                                .lte(timeBefore)
+                ), PendingMessage::class.java
         )
     }
 }

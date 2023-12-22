@@ -23,7 +23,7 @@ open class ReactiveSendPendingMessageJob {
     }
 
     @RedisLock
-    @Scheduled(cron = "\${eventual-consistency.sendPendingMessageJob.cron:0 0/1 * * * ?}")
+    @Scheduled(cron = "\${eventual-consistency.send-pending-message-job.cron:0 0/1 * * * ?}")
     open fun checkPendingMessage() {
         val stopWatch = StopWatch()
         stopWatch.start()

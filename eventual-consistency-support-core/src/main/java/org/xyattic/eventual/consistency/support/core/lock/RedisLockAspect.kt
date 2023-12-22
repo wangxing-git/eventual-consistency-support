@@ -14,7 +14,7 @@ import java.time.Duration
  */
 @Aspect
 open class RedisLockAspect(private val redisTemplate: StringRedisTemplate) {
-    @Value("\${common-mq.redis-lock.namespace:#{'common-mq:\${spring.application.name:unknown-service-name}:'}}")
+    @Value("\${eventual-consistency.redis-lock.namespace:#{'eventual-consistency:\${spring.application.name:unknown-service-name}:'}}")
     private val namespace: String? = null
 
     @Pointcut("@within(redisLock) || @annotation(redisLock)")

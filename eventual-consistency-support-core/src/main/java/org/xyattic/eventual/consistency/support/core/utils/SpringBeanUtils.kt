@@ -14,7 +14,7 @@ import org.springframework.beans.factory.support.DefaultListableBeanFactory
 import org.springframework.context.ConfigurableApplicationContext
 import org.springframework.core.ResolvableType
 import org.springframework.util.ClassUtils
-import org.xyattic.eventual.consistency.support.core.exception.MqException
+import org.xyattic.eventual.consistency.support.core.exception.EventualConsistencyException
 import java.beans.Introspector
 
 /**
@@ -105,16 +105,16 @@ object SpringBeanUtils {
             if (bean == null) {
                 val beanNamesForType = beanFactory.getBeanNamesForType(beanClass)
                 bean = if (beanNamesForType.size == 0) {
-                    throw MqException(beanClass.simpleName + " bean not found in " +
+                    throw EventualConsistencyException(beanClass.simpleName + " bean not found in " +
                             "spring")
                 } else if (beanNamesForType.size == 1) {
                     getBean(beanNamesForType[0])
                 } else {
-                    throw MqException(beanClass.simpleName + " bean found " + beanNamesForType.size + ", please specify a name")
+                    throw EventualConsistencyException(beanClass.simpleName + " bean found " + beanNamesForType.size + ", please specify a name")
                 }
             }
         }
-        return bean ?: throw MqException(beanClass.simpleName + " bean not found in " +
+        return bean ?: throw EventualConsistencyException(beanClass.simpleName + " bean not found in " +
                 "spring")
     }
 }

@@ -5,13 +5,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.2.6.RELEASE</version>
+        <version>2.3.5.RELEASE</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.xyattic</groupId>
     <artifactId>eventual-consistency-examples</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0-SNAPSHOT</version>
     <name>eventual-consistency-examples</name>
     <description>eventual-consistency-examples</description>
     <packaging>pom</packaging>
@@ -25,7 +25,7 @@
             <dependency>
                 <groupId>org.xyattic</groupId>
                 <artifactId>eventual-consistency-support-core</artifactId>
-                <version>0.0.1-SNAPSHOT</version>
+                <version>0.1.0-SNAPSHOT</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -38,6 +38,14 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

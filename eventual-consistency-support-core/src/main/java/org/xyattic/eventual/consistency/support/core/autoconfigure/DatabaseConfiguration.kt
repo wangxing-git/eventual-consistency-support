@@ -1,5 +1,6 @@
 package org.xyattic.eventual.consistency.support.core.autoconfigure
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.common.collect.Maps
 import org.springframework.beans.factory.InitializingBean
 import org.springframework.boot.autoconfigure.condition.*
@@ -32,7 +33,6 @@ import org.xyattic.eventual.consistency.support.core.utils.getLogger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.*
-import java.util.function.Consumer
 
 /**
  * @author wangxing
@@ -47,9 +47,9 @@ class DatabaseConfiguration {
     @ConditionalOnBean(MongoDatabaseFactory::class, MongoTemplate::class)
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     @ConditionalOnProperty(
-        name = ["eventual-consistency.database-type"],
-        havingValue = "mongodb",
-        matchIfMissing = true
+            name = ["eventual-consistency.database-type"],
+            havingValue = "mongodb",
+            matchIfMissing = true
     )
     internal class MongoConfiguration {
 
@@ -78,9 +78,9 @@ class DatabaseConfiguration {
     @ConditionalOnBean(ReactiveMongoDatabaseFactory::class, ReactiveMongoTemplate::class)
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
     @ConditionalOnProperty(
-        name = ["eventual-consistency.database-type"],
-        havingValue = "mongodb",
-        matchIfMissing = true
+            name = ["eventual-consistency.database-type"],
+            havingValue = "mongodb",
+            matchIfMissing = true
     )
     internal class ReactiveMongoConfiguration {
 
@@ -108,9 +108,9 @@ class DatabaseConfiguration {
     @ConditionalOnClass(JdbcTemplate::class)
     @ConditionalOnBean(JdbcTemplate::class)
     @ConditionalOnProperty(
-        name = ["eventual-consistency.database-type"],
-        havingValue = "jdbc",
-        matchIfMissing = true
+            name = ["eventual-consistency.database-type"],
+            havingValue = "jdbc",
+            matchIfMissing = true
     )
     internal class JdbcConfiguration {
 
@@ -119,15 +119,15 @@ class DatabaseConfiguration {
         @Bean
         @ConditionalOnMissingBean
         @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-        fun jdbcTemplaPersistence(jdbcTemplate: JdbcTemplate): Persistence {
-            return JdbcTemplatePersistence(jdbcTemplate)
+        fun jdbcTemplaPersistence(jdbcTemplate: JdbcTemplate, objectMapper: ObjectMapper): Persistence {
+            return JdbcTemplatePersistence(jdbcTemplate, objectMapper)
         }
 
         @Bean
         @ConditionalOnMissingBean
         @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
-        fun reactiveJdbcTemplaPersistence(jdbcTemplate: JdbcTemplate): ReactivePersistence {
-            return ReactiveJdbcTemplatePersistence(jdbcTemplate)
+        fun reactiveJdbcTemplaPersistence(jdbcTemplate: JdbcTemplate, objectMapper: ObjectMapper): ReactivePersistence {
+            return ReactiveJdbcTemplatePersistence(jdbcTemplate, objectMapper)
         }
 
         @Bean
@@ -135,15 +135,15 @@ class DatabaseConfiguration {
         fun initPersistenceDatabaseBean(jdbcTemplate: JdbcTemplate): InitializingBean {
             return InitializingBean {
                 var tableName = jdbcTemplate.queryForList(
-                    "SELECT table_name FROM " +
-                            "information_schema.TABLES WHERE table_name =?", String::class.java,
-                    "consumed_message"
+                        "SELECT table_name FROM " +
+                                "information_schema.TABLES WHERE table_name =?", String::class.java,
+                        "consumed_message"
                 )
                 if (CollectionUtils.isEmpty(tableName)) {
                     //创建表
                     try {
                         jdbcTemplate.execute(
-                            """
+                                """
                             CREATE TABLE `consumed_message`  (
                               `id` char(64) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,
                               `message` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
@@ -160,7 +160,7 @@ class DatabaseConfiguration {
                     }
                 }
                 tableName = jdbcTemplate.queryForList(
-                    """
+                        """
                         SELECT table_name FROM information_schema.TABLES WHERE table_name =?
                     """.trimIndent(), String::class.java, "pending_message"
                 )
@@ -168,7 +168,7 @@ class DatabaseConfiguration {
                     //创建表
                     try {
                         jdbcTemplate.execute(
-                            """
+                                """
                             CREATE TABLE `pending_message`  (
                               `message_id` char(64) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,
                               `body` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
@@ -193,9 +193,9 @@ class DatabaseConfiguration {
 
     @Configuration
     @ConditionalOnProperty(
-        name = ["eventual-consistency.database-type"],
-        havingValue = "in_memory",
-        matchIfMissing = true
+            name = ["eventual-consistency.database-type"],
+            havingValue = "in_memory",
+            matchIfMissing = true
     )
     internal class InMemoryConfiguration {
 
@@ -225,16 +225,14 @@ class DatabaseConfiguration {
                 }
             }
 
-            override fun save(pendingMessages: List<PendingMessage>) {
-                pendingMessages.forEach(Consumer { pendingMessage: PendingMessage ->
-                    pendingMessageMap[pendingMessage.messageId] = pendingMessage
-                })
+            override fun save(pendingMessage: PendingMessage) {
+                pendingMessageMap[pendingMessage.messageId] = pendingMessage
             }
 
             override fun changePendingMessageStatus(
-                id: String,
-                status: PendingMessageStatus,
-                sendTime: Date
+                    id: String,
+                    status: PendingMessageStatus,
+                    sendTime: Date
             ) {
                 pendingMessageMap.computeIfPresent(id) { s: String, pendingMessage: PendingMessage ->
                     pendingMessage.status = status
@@ -261,11 +259,11 @@ class DatabaseConfiguration {
 
             override fun getPendingMessages(timeBefore: Date): List<PendingMessage> {
                 return pendingMessageMap.values
-                    .filter {
-                        PendingMessageStatus.PENDING == it.status && it.createTime.before(
-                            timeBefore
-                        )
-                    }
+                        .filter {
+                            PendingMessageStatus.PENDING == it.status && it.createTime.before(
+                                    timeBefore
+                            )
+                        }
             }
         }
 
@@ -276,27 +274,25 @@ class DatabaseConfiguration {
 
             override fun save(consumedMessage: ConsumedMessage): Mono<Void> {
                 return Mono.justOrEmpty(
-                    consumedMessageMap.put(
-                        consumedMessage.id,
-                        consumedMessage
-                    ) == null
+                        consumedMessageMap.put(
+                                consumedMessage.id,
+                                consumedMessage
+                        ) == null
                 )
-                    .filter { it }
-                    .switchIfEmpty(Mono.error { throw DuplicateKeyException(consumedMessage.id.toString()) })
-                    .then()
+                        .filter { it }
+                        .switchIfEmpty(Mono.error { throw DuplicateKeyException(consumedMessage.id.toString()) })
+                        .then()
             }
 
-            override fun save(pendingMessages: List<PendingMessage>): Mono<Void> {
-                pendingMessages.forEach(Consumer { pendingMessage: PendingMessage ->
-                    pendingMessageMap[pendingMessage.messageId] = pendingMessage
-                })
+            override fun save(pendingMessage: PendingMessage): Mono<Void> {
+                pendingMessageMap[pendingMessage.messageId] = pendingMessage
                 return Mono.empty()
             }
 
             override fun changePendingMessageStatus(
-                id: String,
-                status: PendingMessageStatus,
-                sendTime: Date
+                    id: String,
+                    status: PendingMessageStatus,
+                    sendTime: Date
             ): Mono<Void> {
                 pendingMessageMap.computeIfPresent(id) { s: String, pendingMessage: PendingMessage ->
                     pendingMessage.status = status
@@ -326,11 +322,11 @@ class DatabaseConfiguration {
 
             override fun getPendingMessages(timeBefore: Date): Flux<PendingMessage> {
                 return Flux.fromIterable(pendingMessageMap.values
-                    .filter {
-                        PendingMessageStatus.PENDING == it.status && it.createTime.before(
-                            timeBefore
-                        )
-                    })
+                        .filter {
+                            PendingMessageStatus.PENDING == it.status && it.createTime.before(
+                                    timeBefore
+                            )
+                        })
             }
         }
     }

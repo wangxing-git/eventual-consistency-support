@@ -1,5 +1,6 @@
 package org.xyattic.eventual.consistency.support.core.persistence.reactive.impl
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.jdbc.core.JdbcTemplate
 import org.xyattic.eventual.consistency.support.core.consumer.ConsumedMessage
 import org.xyattic.eventual.consistency.support.core.persistence.impl.JdbcTemplatePersistence
@@ -21,8 +22,8 @@ open class ReactiveJdbcTemplatePersistence : ReactivePersistence {
 
     val persistence: JdbcTemplatePersistence
 
-    constructor(jdbcTemplate: JdbcTemplate) {
-        persistence = JdbcTemplatePersistence(jdbcTemplate)
+    constructor(jdbcTemplate: JdbcTemplate, objectMapper: ObjectMapper) {
+        persistence = JdbcTemplatePersistence(jdbcTemplate, objectMapper)
     }
 
     private val forkJoinPool = ForkJoinPool(20)
@@ -35,18 +36,18 @@ open class ReactiveJdbcTemplatePersistence : ReactivePersistence {
         }
     }
 
-    override fun save(pendingMessages: List<PendingMessage>): Mono<Void> {
+    override fun save(pendingMessage: PendingMessage): Mono<Void> {
         return Mono.fromFuture {
             CompletableFuture.runAsync(Runnable {
-                persistence.save(pendingMessages)
+                persistence.save(pendingMessage)
             }, forkJoinPool)
         }
     }
 
     override fun changePendingMessageStatus(
-        id: String,
-        status: PendingMessageStatus,
-        sendTime: Date
+            id: String,
+            status: PendingMessageStatus,
+            sendTime: Date
     ): Mono<Void> {
         return Mono.fromFuture {
             CompletableFuture.runAsync(Runnable {

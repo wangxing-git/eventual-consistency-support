@@ -30,7 +30,7 @@ open class ReactiveRocketSender(private val rocketMQTemplate: RocketMQTemplate) 
                 if (pendingMessage.headers.containsKey(RocketMQHeaders.TAGS)) {
                     topicWithTags += ":${pendingMessage.headers[RocketMQHeaders.TAGS]}"
                 }
-                var callback = object : SendCallback {
+                val callback = object : SendCallback {
                     override fun onSuccess(sendResult: SendResult) {
                         it.success(sendResult)
                     }

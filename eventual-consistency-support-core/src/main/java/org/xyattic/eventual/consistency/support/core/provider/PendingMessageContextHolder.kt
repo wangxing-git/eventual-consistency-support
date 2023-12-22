@@ -35,6 +35,11 @@ class PendingMessageContextHolder {
             contextHolder.get().add(pendingMessage)
         }
 
+        @JvmStatic
+        fun remove(pendingMessage: PendingMessage) {
+            contextHolder.get().remove(pendingMessage)
+        }
+
     }
 
 }

@@ -1,5 +1,6 @@
 package org.xyattic.eventual.consistency.support.core.autoconfigure
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.rocketmq.spring.core.RocketMQTemplate
 import org.springframework.amqp.rabbit.annotation.RabbitListenerConfigurer
 import org.springframework.amqp.rabbit.core.RabbitTemplate
@@ -13,7 +14,6 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.core.convert.converter.Converter
 import org.springframework.core.convert.support.DefaultConversionService
 import org.springframework.messaging.handler.annotation.support.MessageHandlerMethodFactory
-import org.xyattic.eventual.consistency.support.core.consumer.handler.DefaultMessageHandlerMethodFactory
 import org.xyattic.eventual.consistency.support.core.sender.ReactiveSender
 import org.xyattic.eventual.consistency.support.core.sender.Sender
 import org.xyattic.eventual.consistency.support.core.sender.impl.RabbitSender
@@ -39,8 +39,8 @@ class SenderConfiguration {
 
         @Bean
         @ConditionalOnMissingBean
-        fun rabbitSender(rabbitTemplate: RabbitTemplate): Sender {
-            return RabbitSender(rabbitTemplate)
+        fun rabbitSender(rabbitTemplate: RabbitTemplate, objectMapper: ObjectMapper): Sender {
+            return RabbitSender(rabbitTemplate, objectMapper)
         }
 
         @Bean
@@ -59,21 +59,6 @@ class SenderConfiguration {
 
         }
 
-        private fun createDefaultMessageHandlerMethodFactory(): MessageHandlerMethodFactory {
-            val defaultFactory = DefaultMessageHandlerMethodFactory()
-            defaultFactory.setBeanFactory(beanFactory)
-            val conversionService = DefaultConversionService()
-            conversionService.addConverter(BytesToStringConverter(StandardCharsets.UTF_8))
-            defaultFactory.setConversionService(conversionService)
-            defaultFactory.afterPropertiesSet()
-            return defaultFactory
-        }
-
-        private class BytesToStringConverter internal constructor(private val charset: Charset) : Converter<ByteArray?, String> {
-            override fun convert(source: ByteArray?): String {
-                return String(source!!, charset)
-            }
-        }
     }
 
     @Configuration

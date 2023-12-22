@@ -52,6 +52,14 @@ class ReactivePendingMessageContextHolder {
                 .then()
         }
 
+        fun remove(pendingMessage: PendingMessage): Mono<Void>{
+            return get()
+                    .doOnNext {
+                        it.remove(pendingMessage)
+                    }
+                    .then()
+        }
+
     }
 
 }

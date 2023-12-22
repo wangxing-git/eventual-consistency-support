@@ -11,7 +11,6 @@ import java.lang.annotation.Inherited
     AnnotationTarget.PROPERTY_GETTER,
     AnnotationTarget.PROPERTY_SETTER,
     AnnotationTarget.ANNOTATION_CLASS,
-    AnnotationTarget.ANNOTATION_CLASS,
     AnnotationTarget.CLASS
 )
 @kotlin.annotation.Retention(AnnotationRetention.RUNTIME)

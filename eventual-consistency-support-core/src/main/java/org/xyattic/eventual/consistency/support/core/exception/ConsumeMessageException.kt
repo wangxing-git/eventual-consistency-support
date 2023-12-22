@@ -4,7 +4,7 @@ package org.xyattic.eventual.consistency.support.core.exception
  * @author wangxing
  * @create 2021/4/15
  */
-open class ConsumeMessageException : MqException {
+open class ConsumeMessageException : EventualConsistencyException {
 
     var reconsume = true
 

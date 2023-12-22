@@ -1,4 +1,4 @@
-package org.xyattic.eventual.consistency.support.example.consumer.controller;
+package org.xyattic.eventual.consistency.support.example.consumer.rabbit.listener;
 
 import org.xyattic.eventual.consistency.support.core.consumer.aop.ConsumeMqMessage;
 

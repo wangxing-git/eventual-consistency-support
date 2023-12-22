@@ -4,7 +4,7 @@ package org.xyattic.eventual.consistency.support.core.exception
  * @author wangxing
  * @create 2021/4/15
  */
-open class DuplicateMessageException : MqException {
+open class DuplicateMessageException : EventualConsistencyException {
 
     constructor() {}
     constructor(message: String?) : super(message) {}

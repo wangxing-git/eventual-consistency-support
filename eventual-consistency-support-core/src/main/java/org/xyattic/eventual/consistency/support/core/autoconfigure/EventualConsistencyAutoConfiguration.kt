@@ -1,12 +1,14 @@
 package org.xyattic.eventual.consistency.support.core.autoconfigure
 
 import org.springframework.boot.autoconfigure.AutoConfigureAfter
+import org.springframework.boot.autoconfigure.AutoConfigureBefore
 import org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -27,10 +29,16 @@ import org.xyattic.eventual.consistency.support.core.provider.aop.SendMqMessageI
 @Configuration
 @Order(0)
 @AutoConfigureAfter(value = [MongoDataAutoConfiguration::class, RabbitAutoConfiguration::class, RedisAutoConfiguration::class, JdbcTemplateAutoConfiguration::class])
+@AutoConfigureBefore(value = [FlywayAutoConfiguration::class])
 @Import(SenderConfiguration::class, DatabaseConfiguration::class, RedisLockConfiguration::class)
 @EnableConfigurationProperties(value = [EventualConsistencyProperties::class])
 @ConditionalOnProperty(name = ["eventual-consistency.enabled"], matchIfMissing = true)
-class CommonMqAutoConfiguration {
+class EventualConsistencyAutoConfiguration {
+
+    @Bean
+    fun eventualConsistencySpringContextUtils(): org.xyattic.eventual.consistency.support.core.utils.SpringContextUtils {
+        return org.xyattic.eventual.consistency.support.core.utils.SpringContextUtils
+    }
 
     @Configuration
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)

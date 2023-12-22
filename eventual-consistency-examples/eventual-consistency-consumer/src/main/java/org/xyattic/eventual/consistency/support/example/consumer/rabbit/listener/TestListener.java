@@ -1,4 +1,4 @@
-package org.xyattic.eventual.consistency.support.example.consumer.controller;
+package org.xyattic.eventual.consistency.support.example.consumer.rabbit.listener;
 
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
