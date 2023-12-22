@@ -1,5 +1,12 @@
 {
   "groups": [],
   "properties": [
+    {
+      "name": "eventual-consistency.send-pending-message-job.cron",
+      "type": "java.lang.String",
+      "sourceType": "org.xyattic.eventual.consistency.support.core.job.SendPendingMessageJob",
+      "defaultValue": "0 0/1 * * * ?",
+      "description": "消息重发定时任务执行表达式."
+    }
   ]
 }

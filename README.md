@@ -33,6 +33,7 @@
 3. 配置rabbit和mongo
 
    ```properties
+   eventual-consistency.database-type=mongodb
    spring.data.mongodb.uri=mongodb://root:123456@localhost:27017/marketing?replicaSet=rs0&readPreference=primary&authSource=admin
    
    #rabbitMQ
@@ -43,7 +44,7 @@
    spring.rabbitmq.publisher-confirm-type=correlated
    spring.rabbitmq.publisher-returns=true
    spring.rabbitmq.template.mandatory=true
-   spring.rabbitmq.listener.simple.acknowledge-mode=manual
+   spring.rabbitmq.listener.simple.acknowledge-mode=auto
    ```
 
    
@@ -75,7 +76,7 @@
    > 注: 只有spring管理的对象才能生效
 
 ```java
-	@SendMqMessage
+    @SendMqMessage
     @GetMapping("/guest/testSend")
     public List<PendingMessage> testSend() throws Exception {
         String id = UUID.randomUUID().toString();
@@ -135,7 +136,7 @@
 > 使用时需要用spring注入的代理对象进行调用,不可直接使用`this.xxx`调用
 
 ```
-2020-04-09 11:13:02.925  INFO 32020 --- [nio-8088-exec-1] c.c.n.c.core.provider.RabbitSender       : 成功发送消息:PendingMessage(messageId=6888a20a-2b43-4ac7-9233-6d564f888b43, appId=appid, body=TestMessage(eventId=6888a20a-2b43-4ac7-9233-6d564f888b43, name=ffs), exchange=test-e, routingKey=test-k2, status=PENDING, mongoTemplate=, transactionManager=, createTime=Thu Apr 09 11:13:01 CST 2020)
+2020-04-09 11:13:02.925  INFO 32020 --- [nio-8088-exec-1] c.c.n.c.core.provider.RabbitSender       : message sent successfully: PendingMessage(messageId=6888a20a-2b43-4ac7-9233-6d564f888b43, appId=appid, body=TestMessage(eventId=6888a20a-2b43-4ac7-9233-6d564f888b43, name=ffs), exchange=test-e, routingKey=test-k2, status=PENDING, mongoTemplate=, transactionManager=, createTime=Thu Apr 09 11:13:01 CST 2020)
 
 ```
 
@@ -162,6 +163,7 @@
 2. 配置rabbit和mongo
 
    ```properties
+   eventual-consistency.database-type=mongodb
    spring.data.mongodb.uri=mongodb://root:123456@localhost:27017/marketing?replicaSet=rs0&readPreference=primary&authSource=admin
    
    #rabbitMQ
@@ -172,16 +174,14 @@
    spring.rabbitmq.publisher-confirm-type=correlated
    spring.rabbitmq.publisher-returns=true
    spring.rabbitmq.template.mandatory=true
-   spring.rabbitmq.listener.simple.acknowledge-mode=manual
+   spring.rabbitmq.listener.simple.acknowledge-mode=auto
    ```
 
-3. 使用`@RabbitListener`进行监听,并标注`@RabbitConsumer`
-
-   > 暂只支持`@RabbitListener`方式
+3. 使用`@RabbitListener`进行监听,并标注`@ConsumeMqMessage`
 
 ```java
-	@RabbitListener(queues = "test-q10")
-    @RabbitConsumer
+    @RabbitListener(queues = "test-q10")
+    @ConsumeMqMessage(messageClass = TestMessage.class, messageIdExpression = "#{message.eventId}")
     public void rabbitListener(TestMessage testMessage) {
         System.out.println("========rabbitListener=========");
         System.out.println(testMessage);
@@ -189,7 +189,7 @@
     }
 
     @RabbitListener(queues = "test-q20")
-    @RabbitConsumer
+    @ConsumeMqMessage(messageClass = TestMessage.class, messageIdExpression = "#{message.eventId}")
     public void rabbitListener2(TestMessage testMessage) {
         System.out.println("========rabbitListener2=========");
         System.out.println(testMessage);
@@ -207,13 +207,13 @@
 
 ```java
 @Bean
-public MongoTemplate orderMongoTemplate(){
-	return new MongoTemplate();
+public MongoPersistence orderMongoPersistence(){
+	return new MongoPersistence();
 }
 
 @Bean
-public MongoTemplate userMongoTemplate(){
-	return new MongoTemplate();
+public MongoPersistence userMongoPersistence(){
+	return new MongoPersistence();
 }
 
 //声明TransactionTemplate
@@ -233,13 +233,13 @@ public TransactionTemplate userTransactionTemplate(){
 使用时,在order库进行业务发送和消费
 
 ```java
- @SendMqMessage(mongoTemplate = "orderMongoTemplate", transactionManager = "orderTransactionTemplate")
+ @SendMqMessage(persistenceName = "orderMongoPersistence", transactionManager = "orderTransactionTemplate")
  public void send(){
  	...
  }
 
 //消费
-@RabbitConsumer(mongoTemplate = "orderMongoTemplate", transactionManager = "orderTransactionTemplate")
+@ConsumeMqMessage(persistenceName = "orderMongoPersistence", transactionManager = "orderTransactionTemplate", messageClass = TestMessage.class, messageIdExpression = "#{message.eventId}")
 public void consume(){
     ...
 }
@@ -254,7 +254,7 @@ public void consume(){
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Inherited
-@SendMqMessage(mongoTemplate = "orderMongoTemplate", transactionManager = "orderTransactionTemplate")
+@SendMqMessage(persistenceName = "orderMongoPersistence", transactionManager = "orderTransactionTemplate")
 public @interface SendOrderMqMessage {
 
 }

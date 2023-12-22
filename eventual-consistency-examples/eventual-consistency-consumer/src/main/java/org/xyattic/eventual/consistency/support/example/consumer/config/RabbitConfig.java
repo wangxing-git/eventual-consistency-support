@@ -1,5 +1,10 @@
 package org.xyattic.eventual.consistency.support.example.consumer.config;
 
+import lombok.SneakyThrows;
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.DirectExchange;
+import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -13,6 +18,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.xyattic.eventual.consistency.support.core.utils.RabbitUtils;
 
 import java.time.Duration;
 import java.util.stream.Collectors;
@@ -58,46 +64,41 @@ public class RabbitConfig {
         return (mandatory != null) ? mandatory : properties.isPublisherReturns();
     }
 
-//    /**
-//     * 声明直连交换机绑定
-//     */
-//    @Bean
-//    public Binding bindingCheckPaymentSuccess() {
-//        return BindingBuilder.bind(testQueue()).to(testExchange()).with(
-//                RabbitUtils.getRoutingKey("test-k"));
-//    }
-//
-//    @Bean
-//    public Binding bindingCheckPaymentSuccess2() {
-//        return BindingBuilder.bind(testQueue2()).to(testExchange()).with(
-//                RabbitUtils.getRoutingKey("test-k2"));
-//    }
+    /**
+     * 声明直连交换机绑定
+     */
+    @Bean
+    public Binding bindingCheckPaymentSuccess() {
+        return BindingBuilder.bind(testQueue()).to(testExchange()).with(
+                RabbitUtils.getRoutingKey("test-k"));
+    }
 
-//    @Bean
-//    public DirectExchange testExchange() {
-//        return new DirectExchange(RabbitUtils.getExchange("test-e"));
-//    }
+    @Bean
+    public Binding bindingCheckPaymentSuccess2() {
+        return BindingBuilder.bind(testQueue2()).to(testExchange()).with(
+                RabbitUtils.getRoutingKey("test-k2"));
+    }
+
+    @Bean
+    public DirectExchange testExchange() {
+        return new DirectExchange(RabbitUtils.getExchange("test-e"));
+    }
 
 //    @Bean
 //    public DirectExchange testExchange2() {
 //        return new DirectExchange(RabbitUtils.getExchange("test-e2"));
 //    }
 
-//    @Bean
-//    @SneakyThrows
-//    public Queue testQueue() {
-//        return new Queue(RabbitUtils.getQueue("test-q10"));
-//    }
-//
-//    @Bean
-//    @SneakyThrows
-//    public Queue testQueue2() {
-//        return new Queue(RabbitUtils.getQueue("test-q20"));
-//    }
+    @Bean
+    @SneakyThrows
+    public Queue testQueue() {
+        return new Queue(RabbitUtils.getQueue("test-q10"));
+    }
 
-//    @Bean
-//    public RabbitConsumerAspect rabbitConsumerAspect() {
-//        return new RabbitConsumerAspect();
-//    }
+    @Bean
+    @SneakyThrows
+    public Queue testQueue2() {
+        return new Queue(RabbitUtils.getQueue("test-q20"));
+    }
 
 }
