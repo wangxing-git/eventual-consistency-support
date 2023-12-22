@@ -33,6 +33,7 @@
 3. 配置rabbit和mongo
 
    ```properties
+   eventual-consistency.database-type=mongodb
    spring.data.mongodb.uri=mongodb://root:123456@localhost:27017/marketing?replicaSet=rs0&readPreference=primary&authSource=admin
    
    #rabbitMQ
@@ -162,6 +163,7 @@
 2. 配置rabbit和mongo
 
    ```properties
+   eventual-consistency.database-type=mongodb
    spring.data.mongodb.uri=mongodb://root:123456@localhost:27017/marketing?replicaSet=rs0&readPreference=primary&authSource=admin
    
    #rabbitMQ
